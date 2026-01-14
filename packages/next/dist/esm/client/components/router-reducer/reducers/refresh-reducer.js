@@ -1,0 +1,40 @@
+import { handleNavigationResult } from './navigate-reducer';
+import { convertServerPatchToFullTree, navigateToKnownRoute } from '../../segment-cache/navigation';
+import { revalidateEntireCache } from '../../segment-cache/cache';
+import { hasInterceptionRouteInCurrentTree } from './has-interception-route-in-current-tree';
+import { FreshnessPolicy } from '../ppr-navigations';
+export function refreshReducer(state) {
+    // TODO: Currently, all refreshes purge the prefetch cache. In the future,
+    // only client-side refreshes will have this behavior; the server-side
+    // `refresh` should send new data without purging the prefetch cache.
+    const currentNextUrl = state.nextUrl;
+    const currentRouterState = state.tree;
+    revalidateEntireCache(currentNextUrl, currentRouterState);
+    return refreshDynamicData(state, FreshnessPolicy.RefreshAll);
+}
+export function refreshDynamicData(state, freshnessPolicy) {
+    const currentNextUrl = state.nextUrl;
+    // We always send the last next-url, not the current when performing a dynamic
+    // request. This is because we update the next-url after a navigation, but we
+    // want the same interception route to be matched that used the last next-url.
+    const nextUrlForRefresh = hasInterceptionRouteInCurrentTree(state.tree) ? state.previousNextUrl || currentNextUrl : null;
+    // A refresh is modeled as a navigation to the current URL, but where any
+    // existing dynamic data (including in shared layouts) is re-fetched.
+    const currentCanonicalUrl = state.canonicalUrl;
+    const currentUrl = new URL(currentCanonicalUrl, location.origin);
+    const currentRenderedSearch = state.renderedSearch;
+    const currentFlightRouterState = state.tree;
+    const shouldScroll = true;
+    // Create a NavigationSeed from the current FlightRouterState.
+    // TODO: Eventually we will store this type directly on the state object
+    // instead of reconstructing it on demand. Part of a larger series of
+    // refactors to unify the various tree types that the client deals with.
+    const refreshSeed = convertServerPatchToFullTree(currentFlightRouterState, null, currentRenderedSearch);
+    const now = Date.now();
+    const result = navigateToKnownRoute(now, currentUrl, currentCanonicalUrl, refreshSeed, currentUrl, currentRenderedSearch, state.cache, currentFlightRouterState, freshnessPolicy, nextUrlForRefresh, shouldScroll);
+    const mutable = {};
+    mutable.preserveCustomHistoryState = false;
+    return handleNavigationResult(currentUrl, state, mutable, false, result);
+}
+
+//# sourceMappingURL=refresh-reducer.js.map

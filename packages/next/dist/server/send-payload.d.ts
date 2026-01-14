@@ -1,0 +1,13 @@
+import type { IncomingMessage, ServerResponse } from 'http';
+import type RenderResult from './render-result';
+import type { CacheControl } from './lib/cache-control';
+export declare function sendEtagResponse(req: IncomingMessage, res: ServerResponse, etag: string | undefined): boolean;
+export declare function sendRenderResult({ req, res, result, generateEtags, poweredByHeader, cacheControl, cdnCacheControlHeader, }: {
+    req: IncomingMessage;
+    res: ServerResponse;
+    result: RenderResult;
+    generateEtags: boolean;
+    poweredByHeader: boolean;
+    cacheControl: CacheControl | undefined;
+    cdnCacheControlHeader?: string;
+}): Promise<void>;
